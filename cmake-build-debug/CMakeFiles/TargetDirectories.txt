@@ -1,0 +1,3 @@
+/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/edit_cache.dir
+/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/numa_bind.dir
