@@ -11,6 +11,12 @@ using namespace std;
 // 设置一个变量size，记录队列当中存储元素的个数
 // 队尾指针指向 队尾元素的后一个位置（下一个应该插入的位置）
 
+#define all_threads 2  //总线程数
+#define io_threads 1  // IO线程数
+#define n_threads_one_IO (int)(all_threads / io_threads)
+#define txt 2201  //文件中int类型数据的个数
+#define outputPath(category, tid, format) #category#tid#format  //定义输出文件的路径
+#define batchsize 200  //IO线程每次读取的数据大小
 #define MaxSize 500
 typedef int ElemType;
 typedef struct{
@@ -18,7 +24,6 @@ typedef struct{
     int front;  //队头指针
     int rear;  //队尾指针
     int size;	//队列当前长度
-    int deal_size;  //已处理数量
 }SeqQueue;
 
 // 初始化队列
@@ -26,86 +31,30 @@ void InitQueue(SeqQueue& q)
 {
     q.front = q.rear = 0;
     q.size = 0;		//队列当前长度为0
-    q.deal_size = 0;
-}
-
-// 判断队列是否为空
-bool QueueEmpty(SeqQueue& q)
-{
-    if (q.size==0)	//队空条件
-        return true;
-    else
-        return false;
-}
-
-// 入队
-bool EnQueue(SeqQueue& q, ElemType x)
-{
-    if (q.size==MaxSize)
-        return false;		//队列满则报错
-
-    q.data[q.rear] = x;		//将x插入队尾
-    q.rear = (q.rear + 1) % MaxSize;    //队尾指针后移
-    q.size++;
-    return true;
-}
-
-// 出队
-bool DeQueue(SeqQueue& q, ElemType& x)
-{
-    if (q.size==0)
-        return false;	//队空则报错
-
-    x = q.data[q.front];
-    q.front = (q.front + 1) % MaxSize; //队头指针后移
-//    q.size--;
-    q.deal_size++;
-    return true;
-}
-
-// 获取队头元素
-bool GetHead(SeqQueue& q, ElemType& x)
-{
-    if (q.size==0)
-        return false;	//队空则报错
-
-    x = q.data[q.front];
-    return true;
-}
-
-// 队列中元素的个数
-int QueueNum(SeqQueue& q)
-{
-    return q.size;
 }
 
 /***************pthread使用***************/
-#define all_threads 2  //总线程数
-#define io_threads 1  // IO线程数
-#define n_threads_one_IO (int)(all_threads / io_threads)
-#define txt 10000  //文件中int类型数据的个数
-#define outputPath(category, tid, format) #category#tid#format  //定义输出文件的路径
-#define batchsize 200  //IO线程每次读取的数据大小
+
 
 void gen_data(){
     int i;
     int *d = (int *)malloc(txt * sizeof(int));
 
-    for(i = 0; i < txt; i++){
-        d[i] = i;
-    }
     FILE *fp = fopen("../test.txt", "w");
-    fwrite(d, sizeof(int), txt, fp);
+    for(i = 0; i < txt; i++){
+        fprintf(fp, "%d\n", i);
+    }
     fclose(fp);
 }
 
 void read_data(){
     int i;
-    int *d = (int *)malloc(txt * sizeof(int));
-
-    FILE *fp = fopen("../test.txt", "r");
+    int d;
+    FILE *fp = fopen("../0.txt", "r");
     for(i = 0; i < txt; i++){
-        fread(d, 4, 100, fp);
+        fscanf(fp, "%d\n", &d);
+        if(d != i)
+            fprintf(stderr, "error!%d\n", i);
     }
     fclose(fp);
 }
@@ -116,33 +65,55 @@ struct share_data{
 };
 
 struct thread_data{
-    int tid, flag, deal_count, deal_batch_count;  //人为给定的线程号和线程类别：0 - IO线程， 1 - 计算线程， 一批次中处理数据的个数， 线程处理批次
+    int tid, flag, deal_batch_count;  //人为给定的线程号和线程类别：0 - IO线程， 1 - 计算线程， 线程处理批次
     FILE *fin, *fout;
+    int not_end, send_singal;
     SeqQueue input, output;
     thread_data *IO_data;
     share_data *shared;
 };
 
+
+
 void *io_thread_func(void *data){
     thread_data *my_data = (thread_data *)data;
+    int d, i;
     while(!feof(my_data->fin)) {
-        int *batch_data = (int *) malloc(batchsize * sizeof(int));
-        fseek(my_data->fin, (io_threads * my_data->deal_batch_count - my_data->tid) * batchsize, SEEK_SET);
-        int actual_size = fread(batch_data, sizeof(int), batchsize, my_data->fin);
-        for (int i = 0; i < actual_size; i++) {
-            EnQueue(my_data->input, batch_data[i]);
+        fseek(my_data->fin, (io_threads - 1) * batchsize, SEEK_CUR);
+        for (i = 0; i < batchsize; i++) {
+            if(fscanf(my_data->fin, "%d\n", &d) == -1) {
+                break;
+            }
+            my_data->input.data[my_data->input.rear++ % MaxSize] = d;
         }
-        pthread_cond_signal(&my_data->shared->cv);
+
+        my_data->input.size += i;
+        my_data->send_singal = 1;
+        if(!my_data->input.front)
+            pthread_cond_signal(&my_data->shared->cv);
 
         pthread_mutex_lock(&my_data->shared->mutex);
         if(my_data->output.size){
-            fwrite(my_data->output.data, sizeof(int), my_data->output.size, my_data->fout);
+            for(i = my_data->output.front; i < my_data->output.front + my_data->output.size; i++){
+                fprintf(my_data->fout, "%d\n", my_data->output.data[i % MaxSize]);
+            }
+            my_data->output.front += my_data->output.size;
             my_data->output.size = 0;
             pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
-        }
-        else pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
+        } else pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
         pthread_mutex_unlock(&my_data->shared->mutex);
     }
+    my_data->not_end = 0;
+    pthread_mutex_lock(&my_data->shared->mutex);
+    pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
+    if(my_data->output.size){
+        for(i = my_data->output.front; i < my_data->output.rear - 1; i++){
+            fprintf(my_data->fout, "%d\n", my_data->output.data[i % MaxSize]);
+        }
+        my_data->output.front += my_data->output.size;
+        my_data->output.size = 0;
+    }
+    pthread_mutex_unlock(&my_data->shared->mutex);
 }
 
 void *cal_thread_func(void *data){
@@ -150,37 +121,34 @@ void *cal_thread_func(void *data){
     int data_id = (int)(my_data->tid / n_threads_one_IO);
 
     pthread_mutex_lock(&my_data->shared->mutex);
-    if(!my_data->IO_data[data_id].input.size) {
+    if(!my_data->IO_data[data_id].input.rear) {
         pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
     }
     pthread_mutex_unlock(&my_data->shared->mutex);
 
-    int i, j;
-    while (my_data->IO_data[data_id].input.size) {
-//        pthread_mutex_lock(&my_data->shared->mutex);
-        i = __sync_fetch_and_add(&my_data->IO_data[data_id].deal_count, 1);
-        j = __sync_fetch_and_add(&my_data->IO_data[data_id].input.deal_size, 1);
-//        fprintf(stderr, "i = %d\n", i);
-        if (my_data->IO_data[data_id].input.size - i + 1 < 50) {
-            fprintf(stderr, "if i = %d\n", i);
-            my_data->IO_data[data_id].output.size = i;
+    int i = 0, j = 0;
+    while (j < my_data->IO_data[data_id].input.rear) {
+        i = __sync_fetch_and_add(&my_data->IO_data[data_id].output.rear, 1);
+        j = __sync_fetch_and_add(&my_data->IO_data[data_id].input.front, 1);
+        if (my_data->IO_data[data_id].send_singal && my_data->IO_data[data_id].not_end && my_data->tid % n_threads_one_IO == 1 && my_data->IO_data[data_id].input.size - i < 10) {
+            my_data->IO_data[data_id].output.size = i - my_data->IO_data[data_id].output.front;  //队尾 - 队头 = 等待写入文件的数据个数
+//            fprintf(stderr, "%d\t%d\n", my_data->IO_data[data_id].input.size, my_data->IO_data[data_id].input.rear);
+            my_data->IO_data[data_id].deal_batch_count++;
+            my_data->IO_data[data_id].send_singal = 0;
             pthread_cond_signal(&my_data->shared->cv);
         }
-//        pthread_mutex_unlock(&my_data->shared->mutex);
 
-        my_data->IO_data[data_id].output.data[i] = my_data->IO_data[data_id].input.data[j % MaxSize];
-        sleep(1);
+        my_data->IO_data[data_id].output.data[i % MaxSize] = my_data->IO_data[data_id].input.data[j % MaxSize];
+        usleep(500);
+//        sleep(1);
     }
+    pthread_cond_signal(&my_data->shared->cv);
 }
 
 int main() {
-//    int a = 1;
-//    cout << __sync_fetch_and_add(&a, 4) << endl;
-//    cout << __sync_fetch_and_add(&a, 4) << endl;
-//    cout << __sync_fetch_and_add(&a, 4) << endl;
-
     /*************generate data**************/
-    //gen_data();
+//    gen_data();
+//    read_data();
 
     /*************define variable**************/
     int i;
@@ -201,12 +169,15 @@ int main() {
         }
         else {
             data[i].flag = 0;
-            data[i].deal_count = 0;
             InitQueue(data[i].input);
             InitQueue(data[i].output);
+            data[i].output.size = 0;
+            data[i].deal_batch_count = 0;
             data[i].fin = fopen("../test.txt", "r");
             sprintf(outpath, "%s%d%s", "../", i, ".txt");
             data[i].fout = fopen(outpath, "w");
+            data[i].not_end = 1;
+            data[i].send_singal = 1;
         }
     }
 
