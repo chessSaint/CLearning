@@ -64,6 +64,37 @@ build CMakeFiles/edit_cache.util: CUSTOM_COMMAND
 build edit_cache: phony CMakeFiles/edit_cache.util
 
 # =============================================================================
+# Object build statements for EXECUTABLE target test
+
+
+#############################################
+# Order-only phony target for test
+
+build cmake_object_order_depends_target_test: phony || CMakeFiles/test.dir
+
+build CMakeFiles/test.dir/test.cpp.o: CXX_COMPILER__test_Debug /xqs/project/numa_bind/test.cpp || cmake_object_order_depends_target_test
+  DEP_FILE = CMakeFiles/test.dir/test.cpp.o.d
+  FLAGS = -g -std=gnu++14
+  OBJECT_DIR = CMakeFiles/test.dir
+  OBJECT_FILE_DIR = CMakeFiles/test.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target test
+
+
+#############################################
+# Link the executable test
+
+build test: CXX_EXECUTABLE_LINKER__test_Debug CMakeFiles/test.dir/test.cpp.o
+  FLAGS = -g
+  OBJECT_DIR = CMakeFiles/test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test
+  TARGET_PDB = test.dbg
+
+# =============================================================================
 # Object build statements for EXECUTABLE target numa_bind
 
 
@@ -106,7 +137,7 @@ build numa_bind: CXX_EXECUTABLE_LINKER__numa_bind_Debug CMakeFiles/numa_bind.dir
 #############################################
 # Folder: /xqs/project/numa_bind/cmake-build-debug
 
-build all: phony numa_bind
+build all: phony test numa_bind
 
 # =============================================================================
 # Built-in targets

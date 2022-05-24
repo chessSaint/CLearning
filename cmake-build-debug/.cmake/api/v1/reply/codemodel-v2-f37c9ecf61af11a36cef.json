@@ -15,7 +15,8 @@
 					"source" : ".",
 					"targetIndexes" : 
 					[
-						0
+						0,
+						1
 					]
 				}
 			],
@@ -30,7 +31,8 @@
 					"name" : "numa_bind",
 					"targetIndexes" : 
 					[
-						0
+						0,
+						1
 					]
 				}
 			],
@@ -39,8 +41,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "numa_bind::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-numa_bind-Debug-40ef9910a7e98a9a7170.json",
+					"jsonFile" : "target-numa_bind-Debug-c469d022941fd5e0058d.json",
 					"name" : "numa_bind",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test-Debug-8fd9e522ef91582a67ec.json",
+					"name" : "test",
 					"projectIndex" : 0
 				}
 			]
