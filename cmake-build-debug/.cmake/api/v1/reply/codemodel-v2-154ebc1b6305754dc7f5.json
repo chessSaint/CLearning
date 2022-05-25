@@ -16,7 +16,8 @@
 					"targetIndexes" : 
 					[
 						0,
-						1
+						1,
+						2
 					]
 				}
 			],
@@ -32,7 +33,8 @@
 					"targetIndexes" : 
 					[
 						0,
-						1
+						1,
+						2
 					]
 				}
 			],
@@ -41,15 +43,22 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "numa_bind::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-numa_bind-Debug-c469d022941fd5e0058d.json",
+					"jsonFile" : "target-numa_bind-Debug-eceec3af63771d1734c0.json",
 					"name" : "numa_bind",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "test::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-test-Debug-8fd9e522ef91582a67ec.json",
+					"jsonFile" : "target-test-Debug-07459c49900fca135f24.json",
 					"name" : "test",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "testify::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-testify-Debug-91c42fb8f77328e94563.json",
+					"name" : "testify",
 					"projectIndex" : 0
 				}
 			]

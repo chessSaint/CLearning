@@ -7,13 +7,13 @@
 using namespace std;
 
 #define all_threads 10  //总线程数
-#define io_threads 1  // IO线程数
+#define io_threads 2  // IO线程数
 #define group_threads (int)(all_threads / io_threads)
 #define txt 200  //文件中int类型数据的个数
 #define batchsize 30  //IO线程每次读取的数据大小
 #define MaxSize 70
 
-extern int threshold = group_threads;
+extern int threshold = 2 * group_threads;
 extern int test[201] = {0};
 
 typedef int ElemType;
@@ -79,14 +79,16 @@ void *io_thread_func(void *data) {
 
     int d, i;
     while (!feof(my_data->fin)) {
-        fseek(my_data->fin, (io_threads - 1) * batchsize, SEEK_CUR);
+        for (i = 0; i < (io_threads - 1) * batchsize; i++) {
+            if (fscanf(my_data->fin, "%d\n", &d) == -1) {
+                break;
+            }
+        }
         for (i = 0; i < batchsize; i++) {
             if (fscanf(my_data->fin, "%d\n", &d) == -1) {
                 break;
             }
-//            test[my_data->input.rear] = d;
             my_data->input.data[my_data->input.rear++ % MaxSize] = d;
-//            fprintf(stderr, "%d\n", d);
         }
         my_data->input.size += i;
         my_data->send_singal = 1;
@@ -115,55 +117,58 @@ void *cal_thread_func(void *data){
     int data_id = (int)(my_data->tid / group_threads);
 
     int i, j = 0;
-    while (j < my_data->IO_data[data_id].input.rear) {
-        i = __sync_fetch_and_add(&my_data->IO_data[data_id].output.rear, 1);
-        j = __sync_fetch_and_add(&my_data->IO_data[data_id].input.front, 1);
-//        test[i] = j;
-        my_data->IO_data[data_id].output.data[i % MaxSize] = my_data->IO_data[data_id].input.data[i % MaxSize];
-        if (my_data->IO_data[data_id].send_singal && my_data->IO_data[data_id].not_end && (my_data->IO_data[data_id].input.size - j < threshold)) {
-            my_data->IO_data[data_id].output.size = i - my_data->IO_data[data_id].output.front;  //队尾 - 队头 = 等待写入文件的数据个数
-            my_data->IO_data[data_id].deal_batch_count++;
-            my_data->IO_data[data_id].send_singal = 0;
-            pthread_cond_signal(&my_data->shared->cv);
+//    fprintf(stderr, "tid = %d, input.rear = %d, io_id = %d\n", my_data->tid, my_data->IO_data->input.rear, data_id);
+    while (j < my_data->IO_data->input.rear) {
+        i = __sync_fetch_and_add(&my_data->IO_data->output.rear, 1);
+        j = __sync_fetch_and_add(&my_data->IO_data->input.front, 1);
+        my_data->IO_data->output.data[i % MaxSize] = my_data->IO_data->input.data[i % MaxSize];
+        if (my_data->IO_data->send_singal && my_data->IO_data->not_end && (my_data->IO_data->input.size - j < threshold)) {
+            my_data->IO_data->output.size = i - my_data->IO_data->output.front;  //队尾 - 队头 = 等待写入文件的数据个数
+            my_data->IO_data->deal_batch_count++;
+            my_data->IO_data->send_singal = 0;
+            pthread_cond_signal(&my_data->IO_data->shared->cv);
         }
 //        usleep(500);
         sleep(1);
     }
     if(i == j)
-        pthread_cond_signal(&my_data->shared->cv);
+        pthread_cond_signal(&my_data->IO_data->shared->cv);
 }
 
 int main() {
-    /*************generate data**************/
-//    gen_data();
-//    read_data();
-
     /*************define variable**************/
     int i, j;
 
     thread_data *data = (thread_data *)malloc(all_threads * sizeof(thread_data));
-    share_data *shared = (share_data *)malloc(sizeof(share_data));
-    pthread_mutex_init(&shared->mutex, 0);  //初始化互斥锁
-    pthread_cond_init(&shared->cv, 0);  //初始化条件变量
+    share_data **shared = (share_data **)malloc(io_threads * sizeof(share_data*));
 
     char outpath[20];
-    int d;
+    int d, io_id;
     /*************create thread**************/
     for(i = 0; i < all_threads; i++){
+        io_id = (int)(i / group_threads);
         data[i].tid = i;
-        data[i].shared = shared;
         if(i % group_threads) {
             data[i].flag = 1;
-            data[i].IO_data = &data[(int)(i / group_threads)];
+            data[i].IO_data = &data[io_id * group_threads];
         }
         else {
+            shared[io_id] = (share_data *)malloc(sizeof(share_data));
+            data[i].shared = shared[io_id];
+            pthread_mutex_init(&data[i].shared->mutex, 0);  //初始化互斥锁
+            pthread_cond_init(&data[i].shared->cv, 0);  //初始化条件变量
             data[i].flag = 0;
             InitQueue(data[i].input);
             InitQueue(data[i].output);
             data[i].output.size = 0;
             data[i].deal_batch_count = 0;
             data[i].fin = fopen("../test.txt", "r");
-            fseek(data[i].fin, i * batchsize, SEEK_CUR);
+            for(j = 0; j < io_id * batchsize; j++){
+                if(fscanf(data[i].fin, "%d\n", &d) == -1) {
+                    data[i].not_end = 0;
+                    break;
+                }
+            }
             for (j = 0; j < batchsize; j++) {
                 if(fscanf(data[i].fin, "%d\n", &d) == -1) {
                     data[i].not_end = 0;
@@ -190,8 +195,8 @@ int main() {
         fclose(data[i * group_threads].fout);
     }
     free(data);
+    for(i = 0; i < io_threads; i++){
+        free(shared[i]);
+    }
     free(shared);
-//    for(i = 0; i < 201; i++){
-//        fprintf(stderr, "%d\n", test[i]);
-//    }
 }

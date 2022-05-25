@@ -34,7 +34,7 @@ void gen_data(){
 void read_data(){
     int i;
     int d;
-    FILE *fp = fopen("../test.txt", "r");
+    FILE *fp = fopen("../0.txt", "r");
     for(i = 0; i < txt; i++){
         fscanf(fp, "%d\n", &d);
         if(d != i)
@@ -47,18 +47,5 @@ void read_data(){
 int main() {
     /*************generate data**************/
 //    gen_data();
-    int i, j, d;
-    FILE *fp = fopen("../test.txt", "r");
-    fseek(fp, 30, SEEK_CUR);
-
-    fscanf(fp, "%d\n", &d);
-    fscanf(fp, "%d\n", &d);
-    fscanf(fp, "%d\n", &d);
-    cout << d << endl;
-    fseek(fp, 3, SEEK_CUR);
-    fscanf(fp, "%d\n", &d);
-    cout << d << endl;
-
-
-    fclose(fp);
+    read_data();
 }
