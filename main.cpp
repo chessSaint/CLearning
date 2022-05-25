@@ -7,7 +7,7 @@
 using namespace std;
 
 #define all_threads 15  //总线程数
-#define group_threads 6
+#define group_threads 4
 #define io_threads (int)((all_threads + group_threads - 1) / group_threads)  // IO线程数
 #define txt 200  //文件中int类型数据的个数
 #define batchsize 30  //IO线程每次读取的数据大小
@@ -81,7 +81,7 @@ void *io_thread_func(void *data) {
     pthread_mutex_lock(&my_data->shared->mutex);
     pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
     if(my_data->output.size){
-        for(i = my_data->output.front; i < my_data->output.rear - my_data->last_output + 1; i++){
+        for(i = my_data->output.front; i < my_data->output.rear - my_data->last_output; i++){
             fprintf(my_data->fout, "%d\n", my_data->output.data[i % MaxSize]);
         }
     }
@@ -109,7 +109,7 @@ void *cal_thread_func(void *data){
     }
     if(i == j)
     {
-        my_data->IO_data->last_output = data_id < (io_threads - 1) ? group_threads : (all_threads % group_threads);
+//        my_data->IO_data->last_output = data_id < (io_threads - 1) ? group_threads : (all_threads % group_threads);
         pthread_cond_signal(&my_data->IO_data->shared->cv);
     }
 }
@@ -117,7 +117,7 @@ void *cal_thread_func(void *data){
 int main() {
     /*************define variable**************/
     int i, j;
-
+    fprintf(stderr, "io = %d\n", io_threads);
     thread_data *data = (thread_data *)malloc(all_threads * sizeof(thread_data));
     share_data **shared = (share_data **)malloc(io_threads * sizeof(share_data*));
 
@@ -130,6 +130,7 @@ int main() {
         if(i % group_threads) {
             data[i].flag = 1;
             data[i].IO_data = &data[io_id * group_threads];
+            data[io_id * group_threads].last_output++;
         }
         else {
             shared[io_id] = (share_data *)malloc(sizeof(share_data));
