@@ -7,14 +7,13 @@
 using namespace std;
 
 #define all_threads 15  //总线程数
-#define io_threads 3  // IO线程数
-#define group_threads (int)(all_threads / io_threads)
+#define group_threads 6
+#define io_threads (int)((all_threads + group_threads - 1) / group_threads)  // IO线程数
 #define txt 200  //文件中int类型数据的个数
 #define batchsize 30  //IO线程每次读取的数据大小
 #define MaxSize 70
 
 extern int threshold = 2 * group_threads;
-extern int test[201] = {0};
 
 typedef int ElemType;
 typedef struct{
@@ -33,36 +32,13 @@ void InitQueue(SeqQueue& q)
 
 /***************pthread使用***************/
 
-void gen_data(){
-    int i;
-    int *d = (int *)malloc(txt * sizeof(int));
-
-    FILE *fp = fopen("../test.txt", "w");
-    for(i = 0; i < txt; i++){
-        fprintf(fp, "%d\n", i);
-    }
-    fclose(fp);
-}
-
-void read_data(){
-    int i;
-    int d;
-    FILE *fp = fopen("../0.txt", "r");
-    for(i = 0; i < txt; i++){
-        fscanf(fp, "%d\n", &d);
-        if(d != i)
-            fprintf(stderr, "error!%d\n", i);
-    }
-    fclose(fp);
-}
-
 struct share_data{
     pthread_mutex_t mutex;
     pthread_cond_t cv;
 };
 
 struct thread_data{
-    int tid, flag, deal_batch_count;  //人为给定的线程号和线程类别：0 - IO线程， 1 - 计算线程， 线程处理批次
+    int tid, flag, deal_batch_count, last_output;  //人为给定的线程号和线程类别：0 - IO线程， 1 - 计算线程， 线程处理批次
     FILE *fin, *fout;
     int not_end, send_singal;
     SeqQueue input, output;
@@ -105,7 +81,7 @@ void *io_thread_func(void *data) {
     pthread_mutex_lock(&my_data->shared->mutex);
     pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
     if(my_data->output.size){
-        for(i = my_data->output.front; i < my_data->output.rear - group_threads + 1; i++){
+        for(i = my_data->output.front; i < my_data->output.rear - my_data->last_output + 1; i++){
             fprintf(my_data->fout, "%d\n", my_data->output.data[i % MaxSize]);
         }
     }
@@ -132,7 +108,10 @@ void *cal_thread_func(void *data){
         sleep(1);
     }
     if(i == j)
+    {
+        my_data->IO_data->last_output = data_id < (io_threads - 1) ? group_threads : (all_threads % group_threads);
         pthread_cond_signal(&my_data->IO_data->shared->cv);
+    }
 }
 
 int main() {
