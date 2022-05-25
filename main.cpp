@@ -14,6 +14,7 @@ using namespace std;
 #define MaxSize 70
 
 extern int threshold = group_threads;
+extern int test[201] = {0};
 
 typedef int ElemType;
 typedef struct{
@@ -83,6 +84,7 @@ void *io_thread_func(void *data) {
             if (fscanf(my_data->fin, "%d\n", &d) == -1) {
                 break;
             }
+//            test[my_data->input.rear] = d;
             my_data->input.data[my_data->input.rear++ % MaxSize] = d;
 //            fprintf(stderr, "%d\n", d);
         }
@@ -91,7 +93,6 @@ void *io_thread_func(void *data) {
 
         for(i = 0; i < my_data->output.size; i++){
             fprintf(my_data->fout, "%d\n", my_data->output.data[my_data->output.front++ % MaxSize]);
-//            fprintf(stderr, "%d\n", my_data->output.data[my_data->output.front++ % MaxSize]);
         }
         my_data->output.size = 0;
         pthread_mutex_lock(&my_data->shared->mutex);
@@ -104,7 +105,6 @@ void *io_thread_func(void *data) {
     if(my_data->output.size){
         for(i = my_data->output.front; i < my_data->output.rear - group_threads + 1; i++){
             fprintf(my_data->fout, "%d\n", my_data->output.data[i % MaxSize]);
-//            fprintf(stderr, "%d\n", my_data->output.data[i % MaxSize]);
         }
     }
     pthread_mutex_unlock(&my_data->shared->mutex);
@@ -118,7 +118,8 @@ void *cal_thread_func(void *data){
     while (j < my_data->IO_data[data_id].input.rear) {
         i = __sync_fetch_and_add(&my_data->IO_data[data_id].output.rear, 1);
         j = __sync_fetch_and_add(&my_data->IO_data[data_id].input.front, 1);
-        my_data->IO_data[data_id].output.data[i % MaxSize] = my_data->IO_data[data_id].input.data[j % MaxSize];
+//        test[i] = j;
+        my_data->IO_data[data_id].output.data[i % MaxSize] = my_data->IO_data[data_id].input.data[i % MaxSize];
         if (my_data->IO_data[data_id].send_singal && my_data->IO_data[data_id].not_end && (my_data->IO_data[data_id].input.size - j < threshold)) {
             my_data->IO_data[data_id].output.size = i - my_data->IO_data[data_id].output.front;  //队尾 - 队头 = 等待写入文件的数据个数
             my_data->IO_data[data_id].deal_batch_count++;
@@ -128,7 +129,8 @@ void *cal_thread_func(void *data){
 //        usleep(500);
         sleep(1);
     }
-    pthread_cond_signal(&my_data->shared->cv);
+    if(i == j)
+        pthread_cond_signal(&my_data->shared->cv);
 }
 
 int main() {
@@ -189,4 +191,7 @@ int main() {
     }
     free(data);
     free(shared);
+//    for(i = 0; i < 201; i++){
+//        fprintf(stderr, "%d\n", test[i]);
+//    }
 }
