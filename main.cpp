@@ -92,7 +92,8 @@ void *cal_thread_func(void *data){
     thread_data *my_data = (thread_data *)data;
     int data_id = (int)(my_data->tid / group_threads);
 
-    int i, j = 0;
+    int i, j;
+    i = j = 0;
 //    fprintf(stderr, "tid = %d, input.rear = %d, io_id = %d\n", my_data->tid, my_data->IO_data->input.rear, data_id);
     while (j < my_data->IO_data->input.rear) {
         i = __sync_fetch_and_add(&my_data->IO_data->output.rear, 1);
@@ -122,7 +123,7 @@ int main() {
     share_data **shared = (share_data **)malloc(io_threads * sizeof(share_data*));
 
     char outpath[20];
-    int d, io_id;
+    int d, io_id, io_continue = 1;
     /*************create thread**************/
     for(i = 0; i < all_threads; i++){
         io_id = (int)(i / group_threads);
@@ -143,15 +144,19 @@ int main() {
             data[i].output.size = 0;
             data[i].deal_batch_count = 0;
             data[i].fin = fopen("../test.txt", "r");
+//            for(j = 0; (j < io_id * batchsize) && io_continue; j++){
             for(j = 0; j < io_id * batchsize; j++){
                 if(fscanf(data[i].fin, "%d\n", &d) == -1) {
                     data[i].not_end = 0;
+//                    io_continue = 0;
                     break;
                 }
             }
+//            for (j = 0; (j < batchsize) && io_continue; j++) {
             for (j = 0; j < batchsize; j++) {
                 if(fscanf(data[i].fin, "%d\n", &d) == -1) {
                     data[i].not_end = 0;
+//                    io_continue = 0;
                     break;
                 }
                 data[i].input.data[data[i].input.rear++ % MaxSize] = d;
@@ -164,11 +169,21 @@ int main() {
         }
     }
 
+
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     pthread_t *tid = (pthread_t *)malloc(all_threads * sizeof(pthread_t));
     for(i = 0; i < all_threads; i++) pthread_create(&tid[i], 0, data[i].flag ? cal_thread_func : io_thread_func, &data[i]);
 
     /*************thread join**************/
     for(i = 0; i < all_threads; i++) pthread_join(tid[i], 0);
+
+    gettimeofday(&end, NULL);
+    double usedTime = (end.tv_sec - start.tv_sec) * 1.0 + (end.tv_usec - start.tv_usec) * 1.0 / 1000000.0;
+
+    cout<<usedTime<<" s."<<std::endl;
 
     for(i = 0; i < io_threads; i++){
         fclose(data[i * group_threads].fin);

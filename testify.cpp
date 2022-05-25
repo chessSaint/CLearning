@@ -14,7 +14,7 @@ using namespace std;
 #define all_threads 5  //总线程数
 #define io_threads 1  // IO线程数
 #define group_threads (int)(all_threads / io_threads)
-#define txt 200  //文件中int类型数据的个数
+#define txt 314  //文件中int类型数据的个数
 #define batchsize 30  //IO线程每次读取的数据大小
 #define MaxSize 50
 
@@ -46,6 +46,6 @@ void read_data(){
 
 int main() {
     /*************generate data**************/
-//    gen_data();
-    read_data();
+    gen_data();
+//    read_data();
 }
