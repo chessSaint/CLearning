@@ -55,6 +55,7 @@ void *io_thread_func(void *data) {
 
     int d, i;
     while (!feof(my_data->fin)) {
+        pthread_mutex_lock(&my_data->shared->mutex);
         for (i = 0; i < (io_threads - 1) * batchsize; i++) {
             if (fscanf(my_data->fin, "%d\n", &d) == -1) {
                 break;
@@ -73,7 +74,9 @@ void *io_thread_func(void *data) {
             fprintf(my_data->fout, "%d\n", my_data->output.data[my_data->output.front++ % MaxSize]);
         }
         my_data->output.size = 0;
-        pthread_mutex_lock(&my_data->shared->mutex);
+
+        pthread_cond_signal(&my_data->shared->cv);
+
         pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
         pthread_mutex_unlock(&my_data->shared->mutex);
     }
@@ -90,11 +93,9 @@ void *io_thread_func(void *data) {
 
 void *cal_thread_func(void *data){
     thread_data *my_data = (thread_data *)data;
-    int data_id = (int)(my_data->tid / group_threads);
 
     int i, j;
     i = j = 0;
-//    fprintf(stderr, "tid = %d, input.rear = %d, io_id = %d\n", my_data->tid, my_data->IO_data->input.rear, data_id);
     while (j < my_data->IO_data->input.rear) {
         i = __sync_fetch_and_add(&my_data->IO_data->output.rear, 1);
         j = __sync_fetch_and_add(&my_data->IO_data->input.front, 1);
@@ -105,8 +106,12 @@ void *cal_thread_func(void *data){
             my_data->IO_data->send_singal = 0;
             pthread_cond_signal(&my_data->IO_data->shared->cv);
         }
-//        usleep(500);
         sleep(1);
+        if(!my_data->IO_data->send_singal){
+            pthread_mutex_lock(&my_data->shared->mutex);
+            pthread_cond_wait(&my_data->shared->cv, &my_data->shared->mutex);
+            pthread_mutex_unlock(&my_data->shared->mutex);
+        }
     }
     if(i == j)
     {
@@ -195,5 +200,3 @@ int main() {
     }
     free(shared);
 }
-
-//31.0057 s.

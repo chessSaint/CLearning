@@ -1,5 +1,6 @@
+/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/edit_cache.dir
 /xqs/project/numa_bind/cmake-build-debug/CMakeFiles/rebuild_cache.dir
 /xqs/project/numa_bind/cmake-build-debug/CMakeFiles/numa_bind.dir
 /xqs/project/numa_bind/cmake-build-debug/CMakeFiles/test.dir
 /xqs/project/numa_bind/cmake-build-debug/CMakeFiles/testify.dir
-/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/edit_cache.dir
+/xqs/project/numa_bind/cmake-build-debug/CMakeFiles/not_overlap.dir
